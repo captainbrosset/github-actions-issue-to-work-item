@@ -4,7 +4,7 @@ const azdev = require(`azure-devops-node-api`);
 
 const debug = false; // debug mode for testing...always set to false before doing a commit
 const testPayload = []; // used for debugging, cut and paste payload
-const bucketScenario = "https://dev.azure.com/microsoft/Edge/_workitems/edit/32472886"
+const bucketScenario = "https://dev.azure.com/microsoft/Edge/_api/wit/workItems/32472886"
 
 main();
 
