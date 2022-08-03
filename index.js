@@ -224,7 +224,7 @@ async function find(ghIssueNb, adoClient) {
 
 	if (workItem != null) {
 		try {
-			var result = await client.getWorkItem(workItem.id, null, null, 4);
+			var result = await adoClient.getWorkItem(workItem.id, null, null, 4);
 			console.log("Workitem data retrieved: " + workItem.id);
 			return result;
 		} catch (error) {
