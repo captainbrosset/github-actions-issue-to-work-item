@@ -47,10 +47,10 @@ async function main() {
 		const githubIssue = payload.issue;
 		githubIssue.body += "\n\nAB#" + workItem.id;
 		const octokit = new github.GitHub(process.env.github_token);
-		await octokit.issues.edit({
+		await octokit.issues.update({
 			owner: payload.repository.owner.login,
 			repo: payload.repository.name,
-			number: payload.issue.number,
+			issue_number: payload.issue.number,
 			body: githubIssue.body
 		});
 
