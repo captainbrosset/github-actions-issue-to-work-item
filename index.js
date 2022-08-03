@@ -43,6 +43,17 @@ async function main() {
 
 		workItem = await create(payload, adoClient);
 
+		// Add the work item number at the end of the github issue body.
+		const githubIssue = payload.issue;
+		githubIssue.body += "\n\nAB#" + workItem.id;
+		const octokit = new github.GitHub(process.env.github_token);
+		await octokit.issues.edit({
+			owner: payload.repository.owner.login,
+			repo: payload.repository.name,
+			number: payload.issue.number,
+			body: githubIssue.body
+		});
+
 		// set output message
 		if (workItem != null || workItem != undefined) {
 			console.log(`Work item successfully created or found: ${workItem.id}`);
