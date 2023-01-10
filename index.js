@@ -66,7 +66,7 @@ async function main() {
 			await octokit.pulls.update({
 				owner: payload.repository.owner.login,
 				repo: payload.repository.name,
-				issue_number: issueOrPr.number,
+				pull_number: issueOrPr.number,
 				body: issueOrPr.body
 			});
 		}
