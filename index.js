@@ -5,6 +5,8 @@ const azdev = require(`azure-devops-node-api`);
 async function main() {
 	const payload = github.context.payload;
 	const issueOrPr = payload.issue || payload.pull_request;
+	const isIssue = payload.issue != null;
+	const isPR = payload.pull_request != null;
 
 	if (core.getInput('label') && !issueOrPr.labels.some(label => label.name === core.getInput('label'))) {
 		console.log(`Action was configured to only run when issue or PR has label ${core.getInput('label')}, but we couldn't find it.`);
@@ -52,12 +54,22 @@ async function main() {
 		// Add the work item number at the end of the github issue body.
 		issueOrPr.body += "\n\nAB#" + workItem.id;
 		const octokit = new github.GitHub(process.env.github_token);
-		await octokit.issues.update({
-			owner: payload.repository.owner.login,
-			repo: payload.repository.name,
-			issue_number: payload.issue.number,
-			body: issueOrPr.body
-		});
+
+		if (isIssue) {
+			await octokit.issues.update({
+				owner: payload.repository.owner.login,
+				repo: payload.repository.name,
+				issue_number: issueOrPr.number,
+				body: issueOrPr.body
+			});
+		} else if (isPR) {
+			await octokit.pulls.update({
+				owner: payload.repository.owner.login,
+				repo: payload.repository.name,
+				issue_number: issueOrPr.number,
+				body: issueOrPr.body
+			});
+		}
 
 		// set output message
 		if (workItem != null || workItem != undefined) {
