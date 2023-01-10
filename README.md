@@ -28,6 +28,12 @@ The name of the ADO project within the organization.
 
 An area path to put the work item under.
 
+### `ado_work_item_type`
+
+**Optional**. The type of work item to create. Defaults to Bug.
+
+Common values: Task, Bug, Deliverable, Scenario.
+
 ## Outputs
 
 ### `id`

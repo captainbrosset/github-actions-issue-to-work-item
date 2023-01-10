@@ -23,6 +23,9 @@ inputs:
   ado_area_path:
     description: 'The area path under which the work item should be created'
     required: true
+  ado_work_item_type:
+    description: 'The type of work item to create. Defaults to Bug'
+    required: false
 outputs:
   id:
     description: "id of work item created"

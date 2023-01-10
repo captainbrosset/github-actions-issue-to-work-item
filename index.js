@@ -94,9 +94,9 @@ async function create(payload, adoClient) {
 	const botMessage = await formatDescription(payload);
 	const shortRepoName = payload.repository.full_name.split("/")[1];
 	const tags = core.getInput("ado_tags") ? core.getInput("ado_tags") + ";" + shortRepoName : shortRepoName;
-	const isFeature = payload.issue.labels.some((label) => label === 'enhancement' || label === 'feature');
+	const itemType = core.getInput("ado_work_item_type") ? core.getInput("ado_work_item_type") : "Bug";
 
-	console.log(`Starting to create work item for GitHub issue #${payload.issue.number}`);
+	console.log(`Starting to create a ${itemType} work item for GitHub issue #${payload.issue.number}`);
 
 	const patchDocument = [
 		{
@@ -160,7 +160,7 @@ async function create(payload, adoClient) {
 			(customHeaders = []),
 			(document = patchDocument),
 			(project = core.getInput('ado_project')),
-			(type = isFeature ? 'Scenario' : 'Bug'),
+			(type = itemType),
 			(validateOnly = false),
 			(bypassRules = false)
 		);

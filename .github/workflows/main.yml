@@ -20,3 +20,4 @@ jobs:
           ado_tags: 'githubSync;patrickTest'
           parent_work_item: 37589346
           ado_area_path: 'Edge\Dev Experience\Developer Tools\F12 Tools'
+          ado_work_item_type: 'Deliverable'
