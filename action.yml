@@ -1,13 +1,13 @@
 name: "GitHub Issues to Azure DevOps"
-description: "This action creates an ADO work item when a GitHub issue gets a specific label"
+description: "This action creates an ADO work item for a GitHub issue or pull request"
 author: "captainbrosset"
 branding:
   icon: "refresh-cw"
   color: "yellow"
 inputs:
   label:
-    description: 'The label that needs to be applied for the issue to be synced to ADO'
-    required: true
+    description: 'Only run the action is this label is present on the issue or pull request'
+    required: false
   ado_organization:
     description: 'The name of the ADO organization where the work item should be created'
     required: true
@@ -25,6 +25,9 @@ inputs:
     required: true
   ado_work_item_type:
     description: 'The type of work item to create. Defaults to Bug'
+    required: false
+  ado_dont_check_if_exist:
+    description: 'Do not check if a work item that contains the same issue or PR number already exists to avoid re-creating it. Defaults to false, which means the action checks to avoid re-creating.'
     required: false
 outputs:
   id:

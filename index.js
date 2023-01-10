@@ -4,9 +4,10 @@ const azdev = require(`azure-devops-node-api`);
 
 async function main() {
 	const payload = github.context.payload;
+	const issueOrPr = payload.issue || payload.pull_request;
 
-	if (payload.action !== 'labeled' || payload.label.name !== core.getInput('label')) {
-		console.log(`Either action was not 'labeled'or label was not ${core.getInput('label')}. Nothing to do.`);
+	if (core.getInput('label') && !issueOrPr.labels.some(label => label.name === core.getInput('label'))) {
+		console.log(`Action was configured to only run when issue or PR has label ${core.getInput('label')}, but we couldn't find it.`);
 		return;
 	}
 
@@ -24,34 +25,38 @@ async function main() {
 	}
 
 	try {
-		// go check to see if work item already exists in azure devops or not
-		// based on the title and tags.
-		console.log("Check to see if work item already exists");
-		let workItem = await find(payload.issue.number, adoClient);
-		if (workItem === null) {
-			console.log("Could not find existing ADO workitem, creating one now");
-		} else {
-			console.log("Found existing ADO workitem: " + workItem.id + ". No need to create a new one");
-			return;
+		let workItem = null;
+
+		if (!core.getInput('ado_dont_check_if_exist')) {
+			// go check to see if work item already exists in azure devops or not
+			// based on the title and tags.
+			console.log("Check to see if work item already exists");
+			workItem = await find(issueOrPr.number, adoClient);
+			if (workItem === null) {
+				console.log("Could not find existing ADO workitem, creating one now");
+			} else {
+				console.log("Found existing ADO workitem: " + workItem.id + ". No need to create a new one");
+				return;
+			}
+
+			// if workItem == -1 then we have an error during find
+			if (workItem === -1) {
+				core.setFailed("Error while finding the ADO work item");
+				return;
+			}
 		}
 
-		// if workItem == -1 then we have an error during find
-		if (workItem === -1) {
-			core.setFailed("Error while finding the ADO work item");
-			return;
-		}
 
 		workItem = await create(payload, adoClient);
 
 		// Add the work item number at the end of the github issue body.
-		const githubIssue = payload.issue;
-		githubIssue.body += "\n\nAB#" + workItem.id;
+		issueOrPr.body += "\n\nAB#" + workItem.id;
 		const octokit = new github.GitHub(process.env.github_token);
 		await octokit.issues.update({
 			owner: payload.repository.owner.login,
 			repo: payload.repository.name,
 			issue_number: payload.issue.number,
-			body: githubIssue.body
+			body: issueOrPr.body
 		});
 
 		// set output message
@@ -65,44 +70,45 @@ async function main() {
 	}
 }
 
-function formatTitle(githubIssue) {
-	return "[GitHub #" + githubIssue.number + "] " + githubIssue.title;
+function formatTitle(issueOrPr) {
+	return "[GitHub #" + issueOrPr.number + "] " + issueOrPr.title;
 }
 
 async function formatDescription(payload) {
 	console.log('Creating a description based on the github issue');
 
-	const githubIssue = payload.issue;
+	const issueOrPr = payload.issue || payload.pull_request;
 	const octokit = new github.GitHub(process.env.github_token);
 	const bodyWithMarkdown = await octokit.markdown.render({
-		text: githubIssue.body,
+		text: issueOrPr.body,
 		mode: "gfm",
 		context: payload.repository.full_name
 	});
 
 	return '<em>This item was auto-opened from GitHub <a href="' +
-		githubIssue.html_url +
-		'" target="_new">issue #' +
-		githubIssue.number +
+		issueOrPr.html_url +
+		'" target="_new">issue or PR#' +
+		issueOrPr.number +
 		"</a></em><br>" +
-		"It won't auto-update when the GitHub issue changes so please check the issue for updates.<br><br>" +
-		"<strong>Initial description from GitHub (check issue for more info):</strong><br><br>" +
+		"It won't auto-update when the GitHub issue or PR changes so please check the issue or PR for updates.<br><br>" +
+		"<strong>Initial description from GitHub:</strong><br><br>" +
 		bodyWithMarkdown.data;
 }
 
 async function create(payload, adoClient) {
+	const issueOrPr = payload.issue || payload.pull_request;
 	const botMessage = await formatDescription(payload);
 	const shortRepoName = payload.repository.full_name.split("/")[1];
 	const tags = core.getInput("ado_tags") ? core.getInput("ado_tags") + ";" + shortRepoName : shortRepoName;
 	const itemType = core.getInput("ado_work_item_type") ? core.getInput("ado_work_item_type") : "Bug";
 
-	console.log(`Starting to create a ${itemType} work item for GitHub issue #${payload.issue.number}`);
+	console.log(`Starting to create a ${itemType} work item for GitHub issue or PR #${issueOrPr.number}`);
 
 	const patchDocument = [
 		{
 			op: "add",
 			path: "/fields/System.Title",
-			value: formatTitle(payload.issue),
+			value: formatTitle(issueOrPr),
 		},
 		{
 			op: "add",
@@ -124,7 +130,7 @@ async function create(payload, adoClient) {
 			path: "/relations/-",
 			value: {
 				rel: "Hyperlink",
-				url: payload.issue.html_url,
+				url: issueOrPr.html_url,
 			},
 		}
 	];
@@ -191,14 +197,14 @@ async function create(payload, adoClient) {
 	return workItemSaveResult;
 }
 
-async function find(ghIssueNb, adoClient) {
-	console.log('Connecting to Azure DevOps to find work item for issue #' + ghIssueNb);
+async function find(ghNb, adoClient) {
+	console.log('Connecting to Azure DevOps to find work item for issue or PR #' + ghNb);
 
 	const wiql = {
 		query:
 			`SELECT [System.Id], [System.WorkItemType], [System.Description], [System.Title], [System.AssignedTo], [System.State], [System.Tags]
 			FROM workitems 
-			WHERE [System.TeamProject] = @project AND [System.Title] CONTAINS '[GitHub #${ghIssueNb}]' AND [System.AreaPath] = '${core.getInput('ado_area_path')}'`
+			WHERE [System.TeamProject] = @project AND [System.Title] CONTAINS '[GitHub #${ghNb}]' AND [System.AreaPath] = '${core.getInput('ado_area_path')}'`
 	};
 	console.log("ADO query: " + wiql.query);
 
