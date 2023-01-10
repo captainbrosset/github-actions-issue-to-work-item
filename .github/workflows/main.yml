@@ -6,7 +6,7 @@ on:
       - opened
   pull_request:
     branches:
-      - master
+      - patrick
     types:
       - opened
 
