@@ -27,29 +27,20 @@ async function main() {
 	}
 
 	try {
-		let workItem = null;
-
 		if (!core.getInput('ado_dont_check_if_exist')) {
 			// go check to see if work item already exists in azure devops or not
 			// based on the title and tags.
 			console.log("Check to see if work item already exists");
-			workItem = await find(issueOrPr.number, adoClient);
-			if (workItem === null) {
+			const existingID = await find(issueOrPr);
+			if (!existingID) {
 				console.log("Could not find existing ADO workitem, creating one now");
 			} else {
-				console.log("Found existing ADO workitem: " + workItem.id + ". No need to create a new one");
-				return;
-			}
-
-			// if workItem == -1 then we have an error during find
-			if (workItem === -1) {
-				core.setFailed("Error while finding the ADO work item");
+				console.log("Found existing ADO workitem: " + existingID + ". No need to create a new one");
 				return;
 			}
 		}
 
-
-		workItem = await create(payload, adoClient);
+		const workItem = await create(payload, adoClient);
 
 		// Add the work item number at the end of the github issue body.
 		issueOrPr.body += "\n\nAB#" + workItem.id;
@@ -216,50 +207,21 @@ async function create(payload, adoClient) {
 	return workItemSaveResult;
 }
 
-async function find(ghNb, adoClient) {
-	console.log('Connecting to Azure DevOps to find work item for issue or PR #' + ghNb);
+async function find(issueOrPr) {
+	console.log('Checking if a work item already exists for #' + issueOrPr.number);
 
-	const wiql = {
-		query:
-			`SELECT [System.Id], [System.WorkItemType], [System.Description], [System.Title], [System.AssignedTo], [System.State], [System.Tags]
-			FROM workitems 
-			WHERE [System.TeamProject] = @project AND [System.Title] CONTAINS '[GitHub #${ghNb}]' AND [System.AreaPath] = '${core.getInput('ado_area_path')}'`
-	};
-	console.log("ADO query: " + wiql.query);
+	// Isues or PRs that got mirrored have the AB#123456 tag in the body.
+	// So we can simply look for this and extract the number.
 
-	let queryResult = null;
-	try {
-		queryResult = await adoClient.queryByWiql(wiql, { project: core.getInput('ado_project') });
-
-		// if query results = null then i think we have issue with the project name
-		if (queryResult == null) {
-			console.log("Error: Project name appears to be invalid");
-			core.setFailed("Error: Project name appears to be invalid");
-			return -1;
+	if (issueOrPr.body != null && issueOrPr.body.includes("AB#")) {
+		const regex = /AB#(\d+)/g;
+		const matches = regex.exec(issueOrPr.body);
+		if (matches != null) {
+			return matches[1];
 		}
-	} catch (error) {
-		console.log("Error: queryByWiql failure");
-		console.log(error);
-		core.setFailed(error);
-		return -1;
 	}
 
-	console.log("Use the first item found");
-	const workItem = queryResult.workItems.length > 0 ? queryResult.workItems[0] : null;
-
-	if (workItem != null) {
-		try {
-			var result = await adoClient.getWorkItem(workItem.id, null, null, 4);
-			console.log("Workitem data retrieved: " + workItem.id);
-			return result;
-		} catch (error) {
-			console.log("Error: getWorkItem failure");
-			core.setFailed(error);
-			return -1;
-		}
-	} else {
-		return null;
-	}
+	return null;
 }
 
 main();
