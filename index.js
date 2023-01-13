@@ -82,29 +82,36 @@ async function main() {
 	}
 }
 
-function formatTitle(issueOrPr) {
-	return "[GitHub #" + issueOrPr.number + "] " + issueOrPr.title;
+function formatTitle(payload) {
+	const issueOrPr = payload.issue || payload.pull_request;
+	const isIssue = payload.issue != null;
+
+	return `[GitHub ${isIssue ? "issue" : "PR"} #${issueOrPr.number}] ${issueOrPr.title}`;
 }
 
 async function formatDescription(payload) {
 	console.log('Creating a description based on the github issue');
 
 	const issueOrPr = payload.issue || payload.pull_request;
+	const isIssue = payload.issue != null;
+
 	const octokit = new github.GitHub(process.env.github_token);
 	const bodyWithMarkdown = await octokit.markdown.render({
-		text: issueOrPr.body,
+		text: issueOrPr.body || "",
 		mode: "gfm",
 		context: payload.repository.full_name
 	});
 
-	return '<em>This item was auto-opened from GitHub <a href="' +
-		issueOrPr.html_url +
-		'" target="_new">issue or PR#' +
-		issueOrPr.number +
-		"</a></em><br>" +
-		"It won't auto-update when the GitHub issue or PR changes so please check the issue or PR for updates.<br><br>" +
-		"<strong>Initial description from GitHub:</strong><br><br>" +
-		bodyWithMarkdown.data;
+	return `
+		<hr>
+	  <em>This work item is a mirror of the GitHub
+		<a href="${issueOrPr.html_url}" target="_new">${isIssue ? "issue" : "PR"} #${issueOrPr.number}</a>.
+		It will not auto-update when the GitHub ${isIssue ? "issue" : "PR"} changes, please check the original ${isIssue ? "issue" : "PR"} on GitHub for updates.
+		</em>
+		<hr>
+		<br>
+		${bodyWithMarkdown.data}
+	`;
 }
 
 async function create(payload, adoClient) {
@@ -120,7 +127,7 @@ async function create(payload, adoClient) {
 		{
 			op: "add",
 			path: "/fields/System.Title",
-			value: formatTitle(issueOrPr),
+			value: formatTitle(payload),
 		},
 		{
 			op: "add",
