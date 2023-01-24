@@ -43,7 +43,8 @@ async function main() {
 		const workItem = await create(payload, adoClient);
 
 		// Add the work item number at the end of the github issue body.
-		issueOrPr.body += "\n\nAB#" + workItem.id;
+		const currentBody = issueOrPr.body || "";
+		issueOrPr.body = currentBody + "\n\nAB#" + workItem.id;
 		const octokit = new github.GitHub(process.env.github_token);
 
 		if (isIssue) {
